@@ -105,15 +105,11 @@
             aiDiv.innerHTML = "Menghubungi asisten AI, mohon tunggu...";
             
             try {
-                const response = await fetch(`${API_BASE_URL}/ai-analyze`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(currentScanData)
-                });
+                const response = await fetch(`${API_BASE_URL}/explain?url=${encodeURIComponent(currentScanData.url)}`);
                 const data = await response.json();
                 
                 if (response.ok) {
-                    const formattedText = data.analysis.replace(/\n/g, '<br>');
+                    const formattedText = data.explanation.replace(/\n/g, '<br>');
                     aiDiv.innerHTML = `<strong style="color: #58a6ff;">Hasil Analisis AI:</strong><br><br><span style="color: #c9d1d9;">${formattedText}</span>`;
                 } else {
                     aiDiv.innerHTML = `<span class="error">Gagal: ${data.detail || 'AI Error'}</span>`;
