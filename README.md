@@ -14,7 +14,7 @@ CLI and API that scans a website's HTTP security headers and gives it a score an
 - Basic rate limiting (10 requests/minute per IP)
 
 ## Install
-    git clone https://github.com/ramdanmakhdum-crypto/headerhawk
+    git clone https://github.com/ramdanmakhdum-dev/headerhawk
     cd headerhawk
     python -m venv venv && source venv/bin/activate
     pip install -r requirements.txt
