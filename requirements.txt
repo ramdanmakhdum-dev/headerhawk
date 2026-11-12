@@ -50,3 +50,11 @@ uritemplate==4.2.0
 urllib3==2.8.0
 uvicorn==0.54.0
 websockets==16.1.1
+fastapi
+uvicorn
+httpx
+typer
+rich
+python-dotenv
+google-genai
+requests

@@ -3,123 +3,199 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HeaderHawk Web UI</title>
+    <title>HeaderHawk Ultimate</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0d1117; color: #c9d1d9; text-align: center; padding-top: 30px; margin: 0; }
-        h1 { color: #58a6ff; }
-        .container { background-color: #161b22; width: 90%; max-width: 600px; margin: 0 auto; padding: 25px; border-radius: 10px; border: 1px solid #30363d; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        input[type="text"] { padding: 12px; width: 70%; border-radius: 5px; border: 1px solid #30363d; background-color: #0d1117; color: white; outline: none; }
-        button { padding: 12px 20px; border-radius: 5px; border: none; background-color: #238636; color: white; font-weight: bold; cursor: pointer; margin-left: 10px; transition: 0.3s; }
-        button:hover { background-color: #2ea043; }
-        button:disabled { background-color: #555; cursor: not-allowed; }
-        #result { margin-top: 20px; text-align: left; display: none; background: #0d1117; padding: 20px; border-radius: 5px; border: 1px solid #30363d; word-wrap: break-word; }
-        .grade { font-size: 24px; font-weight: bold; }
-        ul { padding-left: 20px; margin-top: 5px; margin-bottom: 15px; }
-        .error { color: #f85149; font-weight: bold; }
-        .ai-btn { background-color: #1a237e; width: 100%; margin-left: 0; margin-top: 15px; }
-        .ai-btn:hover { background-color: #0d1556; }
-        #aiResult { margin-top: 15px; padding: 15px; background: #161b22; border-radius: 5px; border-left: 4px solid #d29922; display: none; text-align: left; font-size: 14px; line-height: 1.6; }
+        :root { --bg: #0b1120; --panel: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --danger: #ef4444; --success: #10b981; --warning: #f59e0b;}
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh;}
+        
+        .header-title { font-size: 2.5rem; font-weight: 800; color: var(--accent); margin-bottom: 10px; text-shadow: 0 0 15px rgba(59,130,246,0.5); }
+        .subtitle { color: #94a3b8; margin-bottom: 30px; text-align: center; }
+
+        .scan-box { display: flex; gap: 10px; width: 100%; max-width: 600px; margin-bottom: 30px;}
+        .scan-box input { flex: 1; padding: 15px 20px; border-radius: 8px; border: 1px solid #475569; background: var(--panel); color: white; outline: none; font-size: 16px;}
+        .scan-box button { padding: 15px 25px; border-radius: 8px; border: none; background: var(--accent); color: white; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s;}
+        .scan-box button:hover { background: #2563eb; transform: translateY(-2px); }
+
+        #result-container { display: none; width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 20px; }
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+        @media (max-width: 768px) { .dashboard-grid { grid-template-columns: 1fr; } }
+        
+        .card { background: var(--panel); padding: 20px; border-radius: 12px; border: 1px solid #334155; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
+        .card h3 { margin-top: 0; color: #94a3b8; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;}
+        
+        .chart-container { position: relative; height: 200px; width: 100%; display: flex; justify-content: center; }
+        .score-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+        .score-text h1 { margin: 0; font-size: 3rem; color: white; }
+        .score-text p { margin: 0; font-size: 1.2rem; font-weight: bold; }
+
+        .info-list p { margin: 10px 0; font-size: 15px; border-bottom: 1px solid #334155; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start;}
+        .info-list span { color: #94a3b8; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; white-space: nowrap;}
+        .badge.green { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .badge.red { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+        
+        .ai-section { margin-top: 20px; }
+        .btn-ai { background: linear-gradient(135deg, #8b5cf6, #3b82f6); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.2s;}
+        .btn-ai:hover { opacity: 0.9; transform: scale(1.02); }
+        .btn-ai:disabled { opacity: 0.5; cursor: not-allowed; transform: none;}
+        .ai-output { background: #0b1120; padding: 20px; border-radius: 8px; border: 1px solid var(--accent); margin-top: 15px; display: none; line-height: 1.6; font-size: 14px;}
+        .ai-output pre { background: #000; padding: 15px; border-radius: 8px; overflow-x: auto; border: 1px solid #334155;}
+        
+        .loader { border: 4px solid #334155; border-top: 4px solid var(--accent); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; display: none;}
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🦅 HeaderHawk Web UI</h1>
-        <p>Masukkan URL untuk scan security header:</p>
-        <input type="text" id="urlInput" placeholder="https://example.com">
-        <button id="scanBtn" onclick="scanURL()">Scan!</button>
-        <div id="result"></div>
-        <div id="aiResult" style="display:none;"></div>
+
+    <div class="header-title">🦅 HeaderHawk Ultimate</div>
+    <div class="subtitle">Advanced Security Headers, IP Geolocation, & VirusTotal Scanner with AI Auto-Fix</div>
+
+    <div class="scan-box">
+        <input type="text" id="url-input" placeholder="Masukkan URL (contoh: github.com)" onkeypress="if(event.key==='Enter') startScan()">
+        <button onclick="startScan()"><i class="fa-solid fa-magnifying-glass"></i> Scan</button>
+    </div>
+
+    <div class="loader" id="loader"></div>
+
+    <div id="result-container">
+        <div class="dashboard-grid">
+            <!-- KIRI -->
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div class="card">
+                    <h3>Security Score</h3>
+                    <div class="chart-container">
+                        <canvas id="scoreChart"></canvas>
+                        <div class="score-text">
+                            <h1 id="score-val">0</h1>
+                            <p id="grade-val">F</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Server Info & IP-DB</h3>
+                    <div class="info-list" id="ip-info-box"></div>
+                </div>
+                <div class="card">
+                    <h3>VirusTotal Reputation</h3>
+                    <div id="vt-info-box" style="font-weight: bold; font-size: 14px; line-height: 1.5;"></div>
+                </div>
+            </div>
+
+            <!-- KANAN -->
+            <div class="card">
+                <h3>Header Analysis</h3>
+                <div class="info-list" id="headers-box"></div>
+                
+                <div class="ai-section">
+                    <button class="btn-ai" id="btn-ai" onclick="requestAIFix()"><i class="fa-solid fa-robot"></i> Minta Analisis & Perbaikan AI</button>
+                    <div class="ai-output" id="ai-output"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        let currentScanData = null;
-        // URL API Backend (Render)
-        const API_BASE_URL = "https://headerhawk-r8zd.onrender.com";
+        let chartInstance = null;
+        let currentUrl = "";
 
-        async function scanURL() {
-            const url = document.getElementById('urlInput').value;
-            const resultDiv = document.getElementById('result');
-            const scanBtn = document.getElementById('scanBtn');
-            const aiDiv = document.getElementById('aiResult');
-            
-            if (!url) return alert('Masukkan URL dulu teman!');
-            
-            resultDiv.style.display = 'block';
-            resultDiv.innerHTML = 'Sedang memindai... ⏳ (Jika server baru bangun, ini butuh 30-60 detik)';
-            aiDiv.style.display = 'none';
-            scanBtn.disabled = true;
-            
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000); 
-            
+        async function startScan() {
+            const url = document.getElementById('url-input').value;
+            if (!url) return alert("Masukkan URL dulu!");
+            currentUrl = url;
+
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('ai-output').style.display = 'none';
+
             try {
-                const response = await fetch(`${API_BASE_URL}/scan?url=${encodeURIComponent(url)}`, { signal: controller.signal });
-                clearTimeout(timeoutId);
-                
+                const response = await fetch(`/scan?url=${encodeURIComponent(url)}`);
                 const data = await response.json();
-                
-                if (response.ok) {
-                    currentScanData = data;
-                    const color = data.grade === 'A' || data.grade === 'B' ? '#3fb950' : (data.grade === 'F' ? '#f85149' : '#d29922');
-                    
-                    let leakHtml = '';
-                    if (Object.keys(data.leaked_info).length > 0) {
-                        leakHtml = `<p><strong style="color: #d29922;">⚠️ Informasi Sistem Bocor:</strong></p>
-                                    <ul>${Object.keys(data.leaked_info).map(h => `<li style="color: #d29922;">${h}: ${data.leaked_info[h]}</li>`).join('')}</ul>`;
-                    }
 
-                    resultDiv.innerHTML = `
-                        <h3>Hasil Scan: ${data.url}</h3>
-                        <p>Skor: <strong>${data.score}/100</strong> | Grade: <span class="grade" style="color: ${color}">${data.grade}</span></p>
-                        <p><strong>Header yang Ditemukan:</strong></p>
-                        <ul>${Object.keys(data.found_headers).map(h => `<li style="color: #3fb950;">${h}</li>`).join('') || '<li>Tidak ada</li>'}</ul>
-                        <p><strong>Header yang Hilang:</strong></p>
-                        <ul>${data.missing_headers.map(h => `<li style="color: #f85149;">${h}</li>`).join('') || '<li>Tidak ada</li>'}</ul>
-                        ${leakHtml}
-                        <button class="ai-btn" id="aiBtn" onclick="analyzeWithAI()">🤖 Minta Analisis AI</button>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `<p class="error">Error: ${data.detail}</p>`;
+                if (data.detail) {
+                    alert("Error: " + data.detail);
+                    document.getElementById('loader').style.display = 'none';
+                    return;
                 }
-            } catch (error) {
-                clearTimeout(timeoutId);
-                if (error.name === 'AbortError') {
-                    resultDiv.innerHTML = `<p class="error">Gagal: Server terlalu lama merespons (Timeout). Silakan coba klik Scan lagi.</p>`;
-                } else {
-                    resultDiv.innerHTML = `<p class="error">Terjadi kesalahan jaringan. Periksa koneksi internetmu.</p>`;
-                }
+
+                renderResult(data);
+            } catch (err) {
+                alert("Gagal terhubung ke server.");
+            } finally {
+                document.getElementById('loader').style.display = 'none';
             }
-            
-            scanBtn.disabled = false;
         }
 
-        async function analyzeWithAI() {
-            if (!currentScanData) return;
+        function renderResult(data) {
+            document.getElementById('result-container').style.display = 'flex';
             
-            const aiDiv = document.getElementById('aiResult');
-            const aiBtn = document.getElementById('aiBtn');
-            
-            aiBtn.disabled = true;
-            aiBtn.innerText = "⏳ AI sedang menganalisis...";
-            aiDiv.style.display = 'block';
-            aiDiv.innerHTML = "Menghubungi asisten AI, mohon tunggu...";
-            
-            try {
-                const response = await fetch(`${API_BASE_URL}/explain?url=${encodeURIComponent(currentScanData.url)}`);
-                const data = await response.json();
-                
-                if (response.ok) {
-                    const formattedText = data.explanation.replace(/\n/g, '<br>');
-                    aiDiv.innerHTML = `<strong style="color: #58a6ff;">Hasil Analisis AI:</strong><br><br><span style="color: #c9d1d9;">${formattedText}</span>`;
-                } else {
-                    aiDiv.innerHTML = `<span class="error">Gagal: ${data.detail || 'AI Error'}</span>`;
-                }
-            } catch (error) {
-                aiDiv.innerHTML = `<span class="error">Error jaringan saat menghubungi AI.</span>`;
+            // Skor & Chart
+            document.getElementById('score-val').innerText = data.score;
+            document.getElementById('grade-val').innerText = "Grade " + data.grade;
+            let color = data.score >= 75 ? '#10b981' : (data.score >= 50 ? '#f59e0b' : '#ef4444');
+            document.getElementById('grade-val').style.color = color;
+
+            if (chartInstance) chartInstance.destroy();
+            const ctx = document.getElementById('scoreChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: { datasets: [{ data: [data.score, 100 - data.score], backgroundColor: [color, '#334155'], borderWidth: 0 }] },
+                options: { cutout: '75%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+            });
+
+            // IP Info
+            const ip = data.ip_info || {};
+            document.getElementById('ip-info-box').innerHTML = `
+                <p><span>IP Address</span> <b>${ip.query || '-'}</b></p>
+                <p><span>Country</span> <b>${ip.country || '-'}</b></p>
+                <p><span>City</span> <b>${ip.city || '-'}</b></p>
+                <p><span>ISP</span> <b>${ip.isp || '-'}</b></p>
+            `;
+
+            // VirusTotal
+            document.getElementById('vt-info-box').innerHTML = `<i class="fa-solid fa-shield-virus"></i> ${data.virustotal || 'Tidak ada data'}`;
+
+            // Headers
+            let html = '';
+            for (const [key, val] of Object.entries(data.found_headers)) {
+                let isWeak = data.weak_headers[key] ? true : false;
+                let status = isWeak ? `<span class="badge red">Lemah</span>` : `<span class="badge green">Aman</span>`;
+                let note = isWeak ? `<br><small style="color:#ef4444">${data.weak_headers[key].join(', ')}</small>` : '';
+                html += `<p style="flex-direction: column; align-items: flex-start;"><span style="display:flex; justify-content:space-between; width:100%;">${key} ${status}</span> ${note}</p>`;
             }
+            data.missing_headers.forEach(m => {
+                html += `<p><span>${m}</span> <span class="badge red">Hilang</span></p>`;
+            });
+            document.getElementById('headers-box').innerHTML = html;
+        }
+
+        async function requestAIFix() {
+            if (!currentUrl) return;
+            const btn = document.getElementById('btn-ai');
+            const out = document.getElementById('ai-output');
             
-            aiBtn.disabled = false;
-            aiBtn.innerText = "🤖 Minta Analisis AI";
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> AI Sedang Menganalisis...';
+            btn.disabled = true;
+            out.style.display = 'block';
+            out.innerHTML = "Menghubungi Cyber Security Expert AI...";
+
+            try {
+                const response = await fetch(`/explain?url=${encodeURIComponent(currentUrl)}`);
+                const resData = await response.json();
+                
+                if (resData.detail) {
+                    out.innerHTML = `<span style="color:red">Error: ${resData.detail}</span>`;
+                } else {
+                    out.innerHTML = marked.parse(resData.explanation);
+                }
+            } catch (err) {
+                out.innerHTML = `<span style="color:red">Gagal mendapatkan analisis AI.</span>`;
+            } finally {
+                btn.innerHTML = '<i class="fa-solid fa-robot"></i> Minta Analisis & Perbaikan AI';
+                btn.disabled = false;
+            }
         }
     </script>
 </body>
