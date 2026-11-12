@@ -4,48 +4,68 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HeaderHawk Ultimate</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { --bg: #0b1120; --panel: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --danger: #ef4444; --success: #10b981; --warning: #f59e0b;}
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh;}
-        
-        .header-title { font-size: 2.5rem; font-weight: 800; color: var(--accent); margin-bottom: 10px; text-shadow: 0 0 15px rgba(59,130,246,0.5); }
-        .subtitle { color: #94a3b8; margin-bottom: 30px; text-align: center; }
+        * { box-sizing: border-box; }
+        html { overflow-x: hidden; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden;}
 
-        .scan-box { display: flex; gap: 10px; width: 100%; max-width: 600px; margin-bottom: 30px;}
-        .scan-box input { flex: 1; padding: 15px 20px; border-radius: 8px; border: 1px solid #475569; background: var(--panel); color: white; outline: none; font-size: 16px;}
-        .scan-box button { padding: 15px 25px; border-radius: 8px; border: none; background: var(--accent); color: white; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s;}
+        .header-title { font-size: 2rem; font-weight: 800; color: var(--accent); margin-bottom: 10px; text-shadow: 0 0 15px rgba(59,130,246,0.5); text-align: center; }
+        .subtitle { color: #94a3b8; margin-bottom: 30px; text-align: center; font-size: 14px;}
+
+        .scan-box { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 600px; margin-bottom: 30px;}
+        @media(min-width: 600px) { .scan-box { flex-direction: row; } }
+        .scan-box input { flex: 1; padding: 15px 20px; border-radius: 8px; border: 1px solid #475569; background: var(--panel); color: white; outline: none; font-size: 16px; width: 100%;}
+        .scan-box button { padding: 15px 25px; border-radius: 8px; border: none; background: var(--accent); color: white; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; width: 100%;}
+        @media(min-width: 600px) { .scan-box button { width: auto; } }
         .scan-box button:hover { background: #2563eb; transform: translateY(-2px); }
 
-        #result-container { display: none; width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 20px; }
-        .dashboard-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
-        @media (max-width: 768px) { .dashboard-grid { grid-template-columns: 1fr; } }
-        
-        .card { background: var(--panel); padding: 20px; border-radius: 12px; border: 1px solid #334155; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
+        /* FIX: dulu ada dua 'display' sehingga panel kosong tampil sebelum scan */
+        #result-container { display: none; width: 100%; max-width: 1000px; flex-direction: column; gap: 20px; }
+
+        .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; width: 100%;}
+        @media (min-width: 768px) { .dashboard-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); } }
+        .dashboard-grid > * { min-width: 0; }
+
+        .card { background: var(--panel); padding: 20px; border-radius: 12px; border: 1px solid #334155; box-shadow: 0 4px 6px rgba(0,0,0,0.3); width: 100%; min-width: 0; overflow: hidden;}
         .card h3 { margin-top: 0; color: #94a3b8; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;}
-        
+
         .chart-container { position: relative; height: 200px; width: 100%; display: flex; justify-content: center; }
         .score-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
         .score-text h1 { margin: 0; font-size: 3rem; color: white; }
         .score-text p { margin: 0; font-size: 1.2rem; font-weight: bold; }
 
-        .info-list p { margin: 10px 0; font-size: 15px; border-bottom: 1px solid #334155; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start;}
+        .info-list p { margin: 10px 0; font-size: 14px; border-bottom: 1px solid #334155; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; word-break: break-word;}
         .info-list span { color: #94a3b8; }
-        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; white-space: nowrap;}
+        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; white-space: nowrap; margin-left: 10px;}
         .badge.green { background: rgba(16, 185, 129, 0.2); color: var(--success); }
         .badge.red { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
-        
+        .badge.yellow { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+
         .ai-section { margin-top: 20px; }
         .btn-ai { background: linear-gradient(135deg, #8b5cf6, #3b82f6); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.2s;}
         .btn-ai:hover { opacity: 0.9; transform: scale(1.02); }
         .btn-ai:disabled { opacity: 0.5; cursor: not-allowed; transform: none;}
-        .ai-output { background: #0b1120; padding: 20px; border-radius: 8px; border: 1px solid var(--accent); margin-top: 15px; display: none; line-height: 1.6; font-size: 14px;}
-        .ai-output pre { background: #000; padding: 15px; border-radius: 8px; overflow-x: auto; border: 1px solid #334155;}
-        
+
+        /* FIX: pre-wrap dihapus karena markdown yang sudah jadi HTML bikin jarak baris ganda */
+        .ai-output { background: #0b1120; padding: 15px; border-radius: 8px; border: 1px solid var(--accent); margin-top: 15px; display: none; line-height: 1.6; font-size: 14px; width: 100%; overflow-x: auto; overflow-wrap: anywhere;}
+        .ai-output p { margin-top: 0; margin-bottom: 10px; }
+        .ai-output pre { background: #000; padding: 15px; border-radius: 8px; border: 1px solid #334155; overflow-x: auto; max-width: 100%; white-space: pre; }
+        .ai-output code { font-family: monospace; }
+
         .loader { border: 4px solid #334155; border-top: 4px solid var(--accent); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; display: none;}
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        @media (max-width: 767px) {
+            body { padding: 12px; }
+            .header-title { font-size: 1.5rem; }
+            .card { padding: 14px; }
+            .chart-container { height: 180px; }
+        }
     </style>
 </head>
 <body>
@@ -62,8 +82,7 @@
 
     <div id="result-container">
         <div class="dashboard-grid">
-            <!-- KIRI -->
-            <div style="display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 20px; min-width: 0;">
                 <div class="card">
                     <h3>Security Score</h3>
                     <div class="chart-container">
@@ -84,11 +103,10 @@
                 </div>
             </div>
 
-            <!-- KANAN -->
             <div class="card">
                 <h3>Header Analysis</h3>
                 <div class="info-list" id="headers-box"></div>
-                
+
                 <div class="ai-section">
                     <button class="btn-ai" id="btn-ai" onclick="requestAIFix()"><i class="fa-solid fa-robot"></i> Minta Analisis & Perbaikan AI</button>
                     <div class="ai-output" id="ai-output"></div>
@@ -101,97 +119,102 @@
         let chartInstance = null;
         let currentUrl = "";
 
+        // Semua data dari server/situs target dianggap tidak tepercaya.
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const $ = id => document.getElementById(id);
+
         async function startScan() {
-            const url = document.getElementById('url-input').value;
+            const url = $('url-input').value.trim();
             if (!url) return alert("Masukkan URL dulu!");
             currentUrl = url;
 
-            document.getElementById('loader').style.display = 'block';
-            document.getElementById('result-container').style.display = 'none';
-            document.getElementById('ai-output').style.display = 'none';
+            $('loader').style.display = 'block';
+            $('result-container').style.display = 'none';
+            $('ai-output').style.display = 'none';
 
             try {
                 const response = await fetch(`/scan?url=${encodeURIComponent(url)}`);
                 const data = await response.json();
-
                 if (data.detail) {
                     alert("Error: " + data.detail);
-                    document.getElementById('loader').style.display = 'none';
                     return;
                 }
-
                 renderResult(data);
             } catch (err) {
                 alert("Gagal terhubung ke server.");
             } finally {
-                document.getElementById('loader').style.display = 'none';
+                $('loader').style.display = 'none';
             }
         }
 
         function renderResult(data) {
-            document.getElementById('result-container').style.display = 'flex';
-            
-            // Skor & Chart
-            document.getElementById('score-val').innerText = data.score;
-            document.getElementById('grade-val').innerText = "Grade " + data.grade;
-            let color = data.score >= 75 ? '#10b981' : (data.score >= 50 ? '#f59e0b' : '#ef4444');
-            document.getElementById('grade-val').style.color = color;
+            $('result-container').style.display = 'flex';
+
+            $('score-val').innerText = data.score;
+            $('grade-val').innerText = "Grade " + data.grade;
+            const color = data.score >= 75 ? '#10b981' : (data.score >= 50 ? '#f59e0b' : '#ef4444');
+            $('grade-val').style.color = color;
 
             if (chartInstance) chartInstance.destroy();
-            const ctx = document.getElementById('scoreChart').getContext('2d');
-            chartInstance = new Chart(ctx, {
+            chartInstance = new Chart($('scoreChart').getContext('2d'), {
                 type: 'doughnut',
                 data: { datasets: [{ data: [data.score, 100 - data.score], backgroundColor: [color, '#334155'], borderWidth: 0 }] },
                 options: { cutout: '75%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
             });
 
-            // IP Info
             const ip = data.ip_info || {};
-            document.getElementById('ip-info-box').innerHTML = `
-                <p><span>IP Address</span> <b>${ip.query || '-'}</b></p>
-                <p><span>Country</span> <b>${ip.country || '-'}</b></p>
-                <p><span>City</span> <b>${ip.city || '-'}</b></p>
-                <p><span>ISP</span> <b>${ip.isp || '-'}</b></p>
-            `;
+            $('ip-info-box').innerHTML = `
+                <p><span>IP Address</span> <b>${esc(ip.query || '-')}</b></p>
+                <p><span>Country</span> <b>${esc(ip.country || '-')}</b></p>
+                <p><span>City</span> <b>${esc(ip.city || '-')}</b></p>
+                <p><span>ISP</span> <b>${esc(ip.isp || '-')}</b></p>`;
 
-            // VirusTotal
-            document.getElementById('vt-info-box').innerHTML = `<i class="fa-solid fa-shield-virus"></i> ${data.virustotal || 'Tidak ada data'}`;
+            $('vt-info-box').innerHTML = `<i class="fa-solid fa-shield-virus"></i> ${esc(data.virustotal || 'Tidak ada data')}`;
 
-            // Headers
+            // Defensif: tetap jalan walau backend belum kirim field baru.
+            const found = data.found_headers || {};
+            const weak = data.weak_headers || {};
+            const missing = data.missing_headers || [];
+            const cookies = data.cookie_issues || [];
+
             let html = '';
-            for (const [key, val] of Object.entries(data.found_headers)) {
-                let isWeak = data.weak_headers[key] ? true : false;
-                let status = isWeak ? `<span class="badge red">Lemah</span>` : `<span class="badge green">Aman</span>`;
-                let note = isWeak ? `<br><small style="color:#ef4444">${data.weak_headers[key].join(', ')}</small>` : '';
-                html += `<p style="flex-direction: column; align-items: flex-start;"><span style="display:flex; justify-content:space-between; width:100%;">${key} ${status}</span> ${note}</p>`;
+            for (const key of Object.keys(found)) {
+                const issues = weak[key];
+                const badge = issues ? '<span class="badge yellow">Lemah</span>' : '<span class="badge green">Aman</span>';
+                const note = issues ? `<small style="color:#f59e0b">${esc(issues.join('; '))}</small>` : '';
+                html += `<p style="flex-direction:column"><span style="display:flex;justify-content:space-between;width:100%;gap:8px">${esc(key)} ${badge}</span>${note}</p>`;
             }
-            data.missing_headers.forEach(m => {
-                html += `<p><span>${m}</span> <span class="badge red">Hilang</span></p>`;
+            missing.forEach(m => {
+                html += `<p><span>${esc(m)}</span> <span class="badge red">Hilang</span></p>`;
             });
-            document.getElementById('headers-box').innerHTML = html;
+            if (cookies.length) {
+                html += `<p style="flex-direction:column"><span style="display:flex;justify-content:space-between;width:100%">cookie <span class="badge yellow">${cookies.length} masalah</span></span>` +
+                        `<small style="color:#f59e0b">${cookies.map(esc).join('<br>')}</small></p>`;
+            }
+            $('headers-box').innerHTML = html;
         }
 
         async function requestAIFix() {
             if (!currentUrl) return;
-            const btn = document.getElementById('btn-ai');
-            const out = document.getElementById('ai-output');
-            
+            const btn = $('btn-ai');
+            const out = $('ai-output');
+
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> AI Sedang Menganalisis...';
             btn.disabled = true;
             out.style.display = 'block';
-            out.innerHTML = "Menghubungi Cyber Security Expert AI...";
+            out.textContent = "Menghubungi Cyber Security Expert AI...";
 
             try {
                 const response = await fetch(`/explain?url=${encodeURIComponent(currentUrl)}`);
                 const resData = await response.json();
-                
                 if (resData.detail) {
-                    out.innerHTML = `<span style="color:red">Error: ${resData.detail}</span>`;
+                    out.textContent = "Error: " + resData.detail;
                 } else {
-                    out.innerHTML = marked.parse(resData.explanation);
+                    // Output AI bisa dipengaruhi isi situs target: wajib disanitasi.
+                    out.innerHTML = DOMPurify.sanitize(marked.parse(resData.explanation || ''));
                 }
             } catch (err) {
-                out.innerHTML = `<span style="color:red">Gagal mendapatkan analisis AI.</span>`;
+                out.textContent = "Gagal mendapatkan analisis AI.";
             } finally {
                 btn.innerHTML = '<i class="fa-solid fa-robot"></i> Minta Analisis & Perbaikan AI';
                 btn.disabled = false;
