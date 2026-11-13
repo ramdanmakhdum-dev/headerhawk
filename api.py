@@ -20,6 +20,8 @@ AI_DAILY_CAP = 200     # /explain total per hari
 _hits = defaultdict(deque)
 _ai_hits = defaultdict(deque)
 _ai_day = {"date": "", "count": 0}
+SCAN_TTL = 300  # /explain memakai hasil /scan terakhir (5 menit), tidak scan ulang
+_scan_cache = {}
 
 
 def client_ip(request: Request) -> str:
@@ -53,9 +55,13 @@ def check_ai_limit(ip: str) -> None:
     _ai_day["count"] += 1
 
 
-def run_scan(url: str) -> dict:
+def run_scan(url: str, use_cache: bool = False) -> dict:
     if len(url) > 2048:
         raise HTTPException(status_code=400, detail="URL terlalu panjang")
+    key = url.strip().lower()
+    hit = _scan_cache.get(key)
+    if use_cache and hit and time.time() - hit[0] < SCAN_TTL:
+        return hit[1]
     try:
         result = analyze(url)
     except UnsafeURL as e:
@@ -65,6 +71,9 @@ def run_scan(url: str) -> dict:
             status_code=400,
             detail="Gagal mengakses target (timeout atau koneksi ditolak)")
     result["ip_info"], result["virustotal"] = enrich(result["url"])
+    if len(_scan_cache) >= 200:
+        _scan_cache.clear()
+    _scan_cache[key] = (time.time(), result)
     return result
 
 
@@ -102,7 +111,7 @@ def scan_url(url: str, request: Request):
 @app.get("/explain")
 def explain_url(url: str, request: Request):
     check_ai_limit(client_ip(request))
-    r = run_scan(url)
+    r = run_scan(url, use_cache=True)
     data = {
         "url": r["url"],
         "score": r["score"],
