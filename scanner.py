@@ -1,7 +1,7 @@
 import ipaddress
 import json
 import socket
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 import typer
@@ -41,29 +41,50 @@ def normalize_url(url: str) -> str:
     return url if "://" in url else "https://" + url
 
 
-def ensure_public(url: str) -> None:
+ALLOWED_PORTS = {80, 443, 8080, 8443}
+USER_AGENT = "HeaderHawk/2.0 (+https://github.com/ramdanmakhdum-dev/headerhawk)"
+
+
+def ensure_public(url: str) -> str:
+    """Validasi URL, resolve DNS SEKALI, kembalikan IP publik yang dipakai konek."""
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         raise UnsafeURL("Hanya http/https yang diizinkan")
+    if parsed.username or parsed.password:
+        raise UnsafeURL("URL dengan kredensial tidak diizinkan")
     try:
-        infos = socket.getaddrinfo(parsed.hostname, parsed.port or 443)
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError:
+        raise UnsafeURL("Port tidak valid")
+    if port not in ALLOWED_PORTS:
+        raise UnsafeURL("Port tidak diizinkan")
+    try:
+        infos = socket.getaddrinfo(parsed.hostname, port, type=socket.SOCK_STREAM)
     except socket.gaierror:
         raise UnsafeURL("Domain tidak ditemukan")
-    for info in infos:
-        if not ipaddress.ip_address(info[4][0].split("%")[0]).is_global:
-            raise UnsafeURL("Alamat internal/privat tidak diizinkan")
+    ips = [i[4][0].split("%")[0] for i in infos]
+    if not ips or not all(ipaddress.ip_address(ip).is_global for ip in ips):
+        raise UnsafeURL("Alamat internal/privat tidak diizinkan")
+    return ips[0]
 
 
 def fetch_headers(url: str):
-    """Setiap redirect divalidasi ulang sebelum diikuti."""
-    with httpx.Client(timeout=10, follow_redirects=False) as client:
+    """Tiap hop: validasi, resolve sekali, konek langsung ke IP itu (anti DNS rebinding).
+    Hanya header yang dibaca; body tidak pernah diunduh."""
+    with httpx.Client(timeout=10, follow_redirects=False,
+                      headers={"User-Agent": USER_AGENT}) as client:
         for _ in range(MAX_REDIRECTS + 1):
-            ensure_public(url)
-            resp = client.get(url)
-            if resp.is_redirect and "location" in resp.headers:
-                url = str(resp.url.join(resp.headers["location"]))
-                continue
-            return resp.headers, str(resp.url)
+            ip = ensure_public(url)
+            p = urlparse(url)
+            host = f"[{ip}]" if ":" in ip else ip
+            target = p._replace(netloc=host + (f":{p.port}" if p.port else "")).geturl()
+            with client.stream("GET", target, headers={"Host": p.netloc},
+                               extensions={"sni_hostname": p.hostname}) as resp:
+                loc = resp.headers.get("location")
+                if resp.is_redirect and loc:
+                    url = urljoin(url, loc)
+                    continue
+                return resp.headers, url
     raise UnsafeURL("Terlalu banyak redirect")
 
 
@@ -244,3 +265,4 @@ def scan(
 
 if __name__ == "__main__":
     app()
+

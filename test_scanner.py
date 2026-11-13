@@ -5,6 +5,8 @@ import scanner
 from scanner import UnsafeURL, analyze, check_cookies, check_csp, check_hsts, ensure_public, parse_csp
 
 
+# ---------- SSRF guard ----------
+
 @pytest.mark.parametrize("url", [
     "http://127.0.0.1",
     "http://localhost",
@@ -28,6 +30,8 @@ def test_normalize_url_adds_https():
     assert scanner.normalize_url("example.com") == "https://example.com"
     assert scanner.normalize_url(" http://a.com ") == "http://a.com"
 
+
+# ---------- CSP ----------
 
 def test_parse_csp_first_directive_wins():
     d = parse_csp("default-src 'self'; img-src *; default-src 'none'")
@@ -54,6 +58,8 @@ def test_csp_flags_wildcard_and_missing_script_src():
     assert any("script-src" in i for i in check_csp("img-src *; object-src 'none'"))
 
 
+# ---------- HSTS ----------
+
 def test_hsts_checks_max_age():
     assert check_hsts("max-age=31536000; includeSubDomains") == []
     assert check_hsts("max-age=300")
@@ -61,12 +67,16 @@ def test_hsts_checks_max_age():
     assert check_hsts("max-age=abc")
 
 
+# ---------- Cookie ----------
+
 def test_cookie_flags():
     h = httpx.Headers([("set-cookie", "sid=1; Secure; HttpOnly; SameSite=Lax")])
     assert check_cookies(h) == []
     h = httpx.Headers([("set-cookie", "sid=1")])
     assert len(check_cookies(h)) == 3
 
+
+# ---------- Skor ----------
 
 def fake_fetch(headers_list):
     def _fetch(url):
@@ -105,7 +115,7 @@ def test_weak_header_gets_half_points(monkeypatch):
     headers.append(("strict-transport-security", "max-age=300"))
     monkeypatch.setattr(scanner, "fetch_headers", fake_fetch(headers))
     r = analyze("example.com")
-    assert r["score"] == 90
+    assert r["score"] == 90  # HSTS bobot 20 -> dapat 10
     assert "strict-transport-security" in r["weak"]
 
 
@@ -124,3 +134,13 @@ def test_cookie_penalty_is_capped(monkeypatch):
     monkeypatch.setattr(scanner, "fetch_headers", fake_fetch(GOOD + cookies))
     r = analyze("example.com")
     assert r["score"] == 100 - scanner.COOKIE_PENALTY_CAP
+
+
+@pytest.mark.parametrize("url", [
+    "http://example.com:22",
+    "https://user:pw@example.com",
+    "http://example.com:99999",
+])
+def test_blocks_bad_ports_and_credentials(url):
+    with pytest.raises(UnsafeURL):
+        ensure_public(url)
