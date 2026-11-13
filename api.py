@@ -1,3 +1,4 @@
+import hmac
 import os
 import threading
 import time
@@ -27,7 +28,11 @@ SCAN_TTL = 300         # /explain memakai hasil /scan terakhir (5 menit)
 # Jumlah proxy tepercaya di depan app (Render). Cek lewat DEBUG_IP=1 di log.
 TRUSTED_HOPS = max(1, int(os.environ.get("TRUSTED_PROXY_HOPS", "1")))
 
+AUTH_FAIL_LIMIT = 5     # password AI salah maksimal 5x ...
+AUTH_FAIL_WINDOW = 900  # ... per 15 menit per IP
+
 _hits = defaultdict(deque)
+_auth_fails = defaultdict(deque)
 _ai_hits = defaultdict(deque)
 _global = defaultdict(deque)
 _ai_day = {"date": "", "count": 0}
@@ -106,6 +111,28 @@ def check_ai_limit(ip: str) -> None:
     _ai_day["count"] += 1
 
 
+def require_ai_password(request: Request, ip: str) -> None:
+    """Fitur AI dikunci: hanya yang tahu AI_PASSWORD (env) yang boleh memakai."""
+    expected = os.environ.get("AI_PASSWORD", "")
+    if not expected:  # fail closed: tanpa password terpasang, AI mati
+        raise HTTPException(status_code=503, detail="Fitur AI sedang dinonaktifkan")
+    now = time.time()
+    if ip not in _auth_fails and len(_auth_fails) >= MAX_TRACKED:
+        for k in [k for k, q in _auth_fails.items() if not q or now - q[-1] > AUTH_FAIL_WINDOW]:
+            del _auth_fails[k]
+        if len(_auth_fails) >= MAX_TRACKED:
+            raise HTTPException(status_code=429, detail="Server sedang sibuk, coba lagi nanti")
+    q = _auth_fails[ip]
+    while q and now - q[0] > AUTH_FAIL_WINDOW:
+        q.popleft()
+    if len(q) >= AUTH_FAIL_LIMIT:
+        raise HTTPException(status_code=429, detail="Terlalu banyak percobaan salah, coba lagi nanti")
+    given = request.headers.get("x-ai-password", "")
+    if not hmac.compare_digest(given.encode("utf-8"), expected.encode("utf-8")):
+        q.append(now)
+        raise HTTPException(status_code=401, detail="Password salah")
+
+
 def run_scan(url: str, use_cache: bool = False) -> dict:
     if len(url) > 2048:
         raise HTTPException(status_code=400, detail="URL terlalu panjang")
@@ -173,7 +200,9 @@ def scan_url(url: str, request: Request):
 
 @app.get("/explain")
 def explain_url(url: str, request: Request):
-    check_ai_limit(client_ip(request))
+    ip = client_ip(request)
+    require_ai_password(request, ip)  # cek password dulu, sebelum kuota AI terpakai
+    check_ai_limit(ip)
     r = run_scan(url, use_cache=True)
     data = {
         "url": r["url"],

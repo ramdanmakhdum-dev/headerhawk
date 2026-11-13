@@ -47,6 +47,8 @@
         .badge.yellow { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
 
         .ai-section { margin-top: 20px; }
+        .ai-hint { color: #94a3b8; font-size: 13px; margin: 0 0 8px; }
+        .ai-pass { width: 100%; padding: 12px 14px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #475569; background: var(--bg); color: white; font-size: 16px; outline: none; }
         .btn-ai { background: linear-gradient(135deg, #8b5cf6, #3b82f6); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.2s;}
         .btn-ai:hover { opacity: 0.9; transform: scale(1.02); }
         .btn-ai:disabled { opacity: 0.5; cursor: not-allowed; transform: none;}
@@ -108,6 +110,8 @@
                 <div class="info-list" id="headers-box"></div>
 
                 <div class="ai-section">
+                    <p class="ai-hint"><i class="fa-solid fa-lock"></i> Fitur AI dikunci supaya kuota tidak habis. Minta password ke pemilik proyek.</p>
+                    <input type="password" id="ai-password" class="ai-pass" placeholder="Password fitur AI" autocomplete="off" maxlength="128">
                     <button class="btn-ai" id="btn-ai"><i class="fa-solid fa-robot"></i> Minta Analisis & Perbaikan AI</button>
                     <div class="ai-output" id="ai-output"></div>
                 </div>

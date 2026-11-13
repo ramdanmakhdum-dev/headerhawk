@@ -80,6 +80,8 @@
             if (!currentUrl) return;
             const btn = $('btn-ai');
             const out = $('ai-output');
+            const pw = $('ai-password').value;
+            if (!pw) { out.style.display = 'block'; out.textContent = 'Masukkan password AI dulu.'; return; }
 
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> AI Sedang Menganalisis...';
             btn.disabled = true;
@@ -87,7 +89,7 @@
             out.textContent = "Menghubungi Cyber Security Expert AI...";
 
             try {
-                const response = await fetch(`/explain?url=${encodeURIComponent(currentUrl)}`);
+                const response = await fetch(`/explain?url=${encodeURIComponent(currentUrl)}`, { headers: { 'X-AI-Password': pw } });
                 const resData = await response.json();
                 if (resData.detail) {
                     out.textContent = "Error: " + resData.detail;
