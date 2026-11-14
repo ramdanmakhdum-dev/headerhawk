@@ -80,7 +80,7 @@ def test_cookie_flags():
 
 def fake_fetch(headers_list):
     def _fetch(url):
-        return httpx.Headers(headers_list), url
+        return httpx.Headers(headers_list), url, 200
     return _fetch
 
 

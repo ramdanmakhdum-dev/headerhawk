@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse
 
 from ai_engine import analyze_with_ai
 from intel import enrich
+import plugin_cors, plugin_exposed_files, plugin_tls  # noqa: F401 (registrasi plugin)
 from scanner import UnsafeURL, analyze
 
 BASE_DIR = Path(__file__).parent
@@ -193,6 +194,14 @@ def scan_url(url: str, request: Request):
         "found_headers": r["found"],
         "missing_headers": r["missing"],
         "weak_headers": r["weak"],
+        "status_code": r.get("status_code"),
+        "reliability_warning": r.get("reliability_warning"),
+        "findings": r.get("findings", []),
+        "plugin_errors": r.get("plugin_errors", []),
+        "status_code": r.get("status_code"),
+        "reliability_warning": r.get("reliability_warning"),
+        "findings": r.get("findings", []),
+        "plugin_errors": r.get("plugin_errors", []),
         "cookie_issues": r["cookie_issues"],
         "leaked_info": r["leaked_info"],
     }

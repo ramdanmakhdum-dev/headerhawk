@@ -3,6 +3,8 @@ import json
 import socket
 from urllib.parse import urljoin, urlparse
 
+from plugins import ScanContext, run_all
+
 import httpx
 import typer
 from rich.console import Console
@@ -84,8 +86,38 @@ def fetch_headers(url: str):
                 if resp.is_redirect and loc:
                     url = urljoin(url, loc)
                     continue
-                return resp.headers, url
+                return resp.headers, url, resp.status_code
     raise UnsafeURL("Terlalu banyak redirect")
+
+
+def probe_with_headers(url: str, ip: str, extra_headers: dict):
+    """Permintaan GET tambahan, read-only, ke IP yang SAMA yang sudah divalidasi
+    (dipanggil setelah fetch_headers). Tidak mengikuti redirect. Dipakai plugin
+    pasif, misal menguji refleksi header CORS dengan Origin custom — ini
+    permintaan normal seperti browser kirim, bukan payload serangan."""
+    p = urlparse(url)
+    host = f"[{ip}]" if ":" in ip else ip
+    target = p._replace(netloc=host + (f":{p.port}" if p.port else "")).geturl()
+    headers = {"User-Agent": USER_AGENT, "Host": p.netloc, **extra_headers}
+    with httpx.Client(timeout=8, follow_redirects=False,
+                      headers={"User-Agent": USER_AGENT}) as client:
+        with client.stream("GET", target, headers=headers,
+                           extensions={"sni_hostname": p.hostname}) as resp:
+            return resp.headers
+
+
+def probe_path(url: str, ip: str, path: str):
+    """HEAD read-only ke path tetap (mis. /.env) di host & IP yang sama, untuk
+    cek keberadaan berkas sensitif TANPA mengambil isinya. Tidak mengikuti
+    redirect, tidak pernah mengubah state di server (metode HEAD)."""
+    p = urlparse(url)
+    host = f"[{ip}]" if ":" in ip else ip
+    target = p._replace(path=path, query="", netloc=host + (f":{p.port}" if p.port else "")).geturl()
+    with httpx.Client(timeout=6, follow_redirects=False,
+                      headers={"User-Agent": USER_AGENT}) as client:
+        with client.stream("HEAD", target, headers={"Host": p.netloc},
+                           extensions={"sni_hostname": p.hostname}) as resp:
+            return resp.headers, resp.status_code
 
 
 # ---------- Pengecekan kualitas header ----------
@@ -190,7 +222,7 @@ def check_cookies(headers) -> list:
 # ---------- Analisis ----------
 
 def analyze(url: str) -> dict:
-    headers, final_url = fetch_headers(normalize_url(url))
+    headers, final_url, status_code = fetch_headers(normalize_url(url))
     csp_dirs = parse_csp(headers.get("content-security-policy", ""))
     found, weak, missing = {}, {}, []
     points = 0.0
@@ -216,12 +248,33 @@ def analyze(url: str) -> dict:
     penalty = min(COOKIE_PENALTY_CAP, COOKIE_PENALTY_EACH * len(cookie_issues))
     final = max(0, int(points - penalty))
     grade = next(g for limit, g in GRADES if final >= limit)
-    return {
+    result = {
         "url": final_url, "score": final, "grade": grade,
         "found": found, "missing": missing,
         "weak": weak, "cookie_issues": cookie_issues,
         "leaked_info": {h: headers[h] for h in LEAK_HEADERS if h in headers},
+        "status_code": status_code,
+        "reliability_warning": None,
+        "findings": [], "plugin_errors": [],
     }
+    if not (200 <= status_code < 300):
+        result["reliability_warning"] = (
+            f"Server merespons HTTP {status_code}, bukan halaman normal (2xx). "
+            "Header di atas berasal dari halaman ini (bisa jadi halaman error/blokir "
+            "bot), bukan jaminan konfigurasi situs yang sebenarnya.")
+
+    p = urlparse(final_url)
+    ip = ensure_public(final_url)  # sudah tervalidasi sebelumnya; ambil IP yang sama untuk plugin
+    ctx = ScanContext(
+        url=final_url, ip=ip, hostname=p.hostname, port=p.port or (443 if p.scheme == "https" else 80),
+        scheme=p.scheme, status_code=status_code, headers=headers,
+        probe_with_headers=lambda extra: probe_with_headers(final_url, ip, extra),
+        probe_path=lambda path: probe_path(final_url, ip, path),
+    )
+    findings, errors = run_all(ctx)
+    result["findings"] = [f.to_dict() for f in findings]
+    result["plugin_errors"] = errors
+    return result
 
 
 @app.command()
@@ -265,4 +318,3 @@ def scan(
 
 if __name__ == "__main__":
     app()
-

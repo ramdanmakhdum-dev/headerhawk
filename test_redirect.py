@@ -38,7 +38,8 @@ def test_redirect_to_internal_host_is_blocked(net):
 
 
 def test_connects_to_pinned_ip_and_follows_safe_redirect(net):
-    headers, final = fetch_headers("http://hop.test/start")
+    headers, final, status = fetch_headers("http://hop.test/start")
+    assert status == 200
     assert final == "https://ok.test/final"
     assert headers["x-content-type-options"] == "nosniff"
     assert net == [("93.184.216.36", "hop.test"), ("93.184.216.35", "ok.test")]
