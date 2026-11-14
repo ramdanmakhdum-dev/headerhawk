@@ -72,7 +72,9 @@ def ensure_public(url: str) -> str:
 
 def fetch_headers(url: str):
     """Tiap hop: validasi, resolve sekali, konek langsung ke IP itu (anti DNS rebinding).
-    Hanya header yang dibaca; body tidak pernah diunduh."""
+    Hanya header yang dibaca; body tidak pernah diunduh. IP hop terakhir ikut
+    dikembalikan supaya pemanggil (analyze) TIDAK perlu resolve DNS lagi — resolve
+    ulang bisa dapat IP berbeda pada situs round-robin/CDN dan salah dianggap gagal."""
     with httpx.Client(timeout=10, follow_redirects=False,
                       headers={"User-Agent": USER_AGENT}) as client:
         for _ in range(MAX_REDIRECTS + 1):
@@ -86,7 +88,7 @@ def fetch_headers(url: str):
                 if resp.is_redirect and loc:
                     url = urljoin(url, loc)
                     continue
-                return resp.headers, url, resp.status_code
+                return resp.headers, url, resp.status_code, ip
     raise UnsafeURL("Terlalu banyak redirect")
 
 
@@ -222,7 +224,7 @@ def check_cookies(headers) -> list:
 # ---------- Analisis ----------
 
 def analyze(url: str) -> dict:
-    headers, final_url, status_code = fetch_headers(normalize_url(url))
+    headers, final_url, status_code, ip = fetch_headers(normalize_url(url))
     csp_dirs = parse_csp(headers.get("content-security-policy", ""))
     found, weak, missing = {}, {}, []
     points = 0.0
@@ -264,7 +266,6 @@ def analyze(url: str) -> dict:
             "bot), bukan jaminan konfigurasi situs yang sebenarnya.")
 
     p = urlparse(final_url)
-    ip = ensure_public(final_url)  # sudah tervalidasi sebelumnya; ambil IP yang sama untuk plugin
     ctx = ScanContext(
         url=final_url, ip=ip, hostname=p.hostname, port=p.port or (443 if p.scheme == "https" else 80),
         scheme=p.scheme, status_code=status_code, headers=headers,

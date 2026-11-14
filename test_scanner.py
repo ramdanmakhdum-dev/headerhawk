@@ -78,10 +78,20 @@ def test_cookie_flags():
 
 # ---------- Skor ----------
 
-def fake_fetch(headers_list):
+def fake_fetch(headers_list, ip="93.184.216.34"):
     def _fetch(url):
-        return httpx.Headers(headers_list), url, 200
+        return httpx.Headers(headers_list), url, 200, ip
     return _fetch
+
+
+@pytest.fixture(autouse=True)
+def _no_plugins(monkeypatch):
+    """File ini menguji skor/header inti, bukan plugin. Tanpa ini, kalau
+    test_api.py (yang meregistrasi plugin_cors/tls/exposed-files lewat impor
+    api.py) sempat jalan lebih dulu dalam sesi pytest yang sama, tes di sini
+    bisa diam-diam memicu permintaan jaringan SUNGGUHAN lewat plugin — lambat
+    dan tidak deterministik. Dikunci supaya analyze() di sini selalu bersih."""
+    monkeypatch.setattr(scanner, "run_all", lambda ctx: ([], []))
 
 
 GOOD = [
